@@ -2,7 +2,7 @@
 #include "linux_kernel.h"
 
 // entry function
-static int __init tre_load|(void) {
+static int __init tre_load(void) {
     pr_info("Module loaded\n");
     return 0;
 }
