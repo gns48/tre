@@ -12,6 +12,9 @@
   the "extended" syntax, and some nonstandard extensions.
 */
 
+/* See the FALLTHROUGH comments below */
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+
 #ifdef __KERNEL__
 #include "linux_kernel.h"
 

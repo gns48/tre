@@ -27,7 +27,7 @@ int
 tre_regncomp(regex_t *preg, const char *regex, size_t n, int cflags)
 {
   int ret;
-#if TRE_WCHAR
+#if (defined TRE_WCHAR) && TRE_WCHAR
   tre_char_t *wregex;
   size_t wlen;
 
@@ -109,7 +109,8 @@ int
 tre_regncompb(regex_t *preg, const char *regex, size_t n, int cflags)
 {
   int ret;
-#if TRE_WCHAR /* wide chars = we need to convert it all to the wide format */
+#if (defined TRE_WCHAR) && TRE_WCHAR
+/* wide chars = we need to convert it all to the wide format */
   tre_char_t *wregex;
   size_t i;
 
@@ -161,7 +162,7 @@ tre_regcompb(regex_t *preg, const char *regex, int cflags)
 }
 
 
-#ifdef TRE_WCHAR
+#if (defined TRE_WCHAR) && TRE_WCHAR
 int
 tre_regwncomp(regex_t *preg, const wchar_t *regex, size_t n, int cflags)
 {
