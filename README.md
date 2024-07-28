@@ -37,7 +37,7 @@ All the library code is copied to a separate directory, namely the linux_kernel.
 some defines and module-specific staff to build the code as kernel module, isolated all userspace
 #includes by conditional #ifdefs and replaced memory allocators with kernel equivalents 
 This was enough at most. My first test succeeded from the first run without any debuggung! 
-Bravo and Respect, 
+Bravo and Respect, Ville!
 
 To add this fuctionality to your code you have to do the following:
 
