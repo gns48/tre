@@ -44,7 +44,7 @@ To add this fuctionality to your code you have to do the following:
 1. Clone this repository and checkout the linux-kernel branch.
 2. cd linux_kernel ; make
 3. #include the tre.h file from kernel source directory into your code
-4. Add the KBUILD_EXTRA_SYMBOLS = <tre module source>/Module.symvers to your module Makefile
+4. Add the KBUILD_EXTRA_SYMBOLS = \<tre module source>/Module.symvers to your module Makefile
 5. Build your module
 6. Copy both the tre.ko and your module to the /lib/modules/$(uname -r) directory.
 7. Run depmod
