@@ -27,7 +27,33 @@ practice.
 Hacking
 =======
 
-Here's how to work with this code.
+Kernel module build
+
+Now the linux-kernel branch contains the quck and dirty port of the TRE library to linux kernel.
+The library may be built as kernel modile to be used as regex compilation and mattching engine.
+Currently only the standard regcomp/regexec/regfree routines are work and work well!
+
+All the library code is copied to a separate directory, namely the linux_kernel. Currently I added 
+some defines and module-specific staff to build the code as kernel module, isolated all userspace
+#includes by conditional #ifdefs and replaced memory allocators with kernel equivalents 
+This was enough at most. My first test succeeded from the first run without any debuggung! 
+Bravo and Respect, 
+
+To add this fuctionality to your code you have to do the following:
+
+1. Clone this repository and checkout the linux-kernel branch.
+2. cd linux_kernel ; make
+3. #include the tre.h file into your code
+4. Add the KBUILD_EXTRA_SYMBOLS = <tre module source>/Module.symvers to your module Makefile
+5. Build your module
+6. Copy both the tre.ko and your module to the /lib/modules/$(uname -r) directory.
+7. Run depmod
+8. (optionaal) Perform module autoload magic if needed
+9. load the tre.ko with modprobe, and after that load your module
+
+The linux kernel specific addons are licensed under dual GPL/BSD license.
+
+-- Gleb Semenov
 
 Prerequisites
 -------------
