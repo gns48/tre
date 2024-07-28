@@ -6,6 +6,11 @@
 
 */
 
+#ifdef __KERNEL__
+
+#include "linux_kernel.h" 
+
+#else
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
@@ -27,9 +32,9 @@ char *alloca ();
 #endif
 #endif /* TRE_USE_ALLOCA */
 
-//#include <assert.h>
-//#include <stdlib.h>
-//#include <string.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 #ifdef HAVE_WCHAR_H
 #include <wchar.h>
 #endif /* HAVE_WCHAR_H */
@@ -37,15 +42,17 @@ char *alloca ();
 #include <wctype.h>
 #endif /* HAVE_WCTYPE_H */
 #ifndef TRE_WCHAR
-//#include <ctype.h>
+#include <ctype.h>
 #endif /* !TRE_WCHAR */
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif /* HAVE_MALLOC_H */
-//#include <limits.h>
+#include <limits.h>
+#include "xmalloc.h"
+#endif /* __KERNEL__ */
+
 
 #include "tre-internal.h"
-#include "xmalloc.h"
 
 
 /* Fills the POSIX.2 regmatch_t array according to the TNFA tag and match
@@ -91,9 +98,9 @@ tre_fill_pmatch(size_t nmatch, regmatch_t pmatch[], int cflags,
       i = 0;
       while (i < tnfa->num_submatches && i < nmatch)
 	{
-//	  if (pmatch[i].rm_eo == -1)
-//	    assert(pmatch[i].rm_so == -1);
-//	  assert(pmatch[i].rm_so <= pmatch[i].rm_eo);
+	  if (pmatch[i].rm_eo == -1)
+	    assert(pmatch[i].rm_so == -1);
+	  assert(pmatch[i].rm_so <= pmatch[i].rm_eo);
 
 	  parents = submatch_data[i].parents;
 	  if (parents != NULL)

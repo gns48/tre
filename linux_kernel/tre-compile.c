@@ -252,7 +252,7 @@ tre_add_tags(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree,
 			  status = REG_ESPACE;
 			  break;
 			}
-//		      assert(tnfa->submatch_data[id].parents == NULL);
+		      assert(tnfa->submatch_data[id].parents == NULL);
 		      tnfa->submatch_data[id].parents = p;
 		      for (i = 0; parents[i] >= 0; i++)
 			p[i] = parents[i];
@@ -310,10 +310,10 @@ tre_add_tags(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree,
 			next_tag++;
 		      }
 		  }
-//		else
-//		  {
-//		    assert(!IS_TAG(lit));
-//		  }
+		else
+		  {
+		    assert(!IS_TAG(lit));
+		  }
 		break;
 	      }
 	    case CATENATION:
@@ -608,7 +608,7 @@ tre_add_tags(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree,
 	  }
 
 	default:
-//	  assert(0);
+	  assert(0);
 	  break;
 
 	} /* end switch(symbol) */
@@ -632,7 +632,7 @@ tre_add_tags(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree,
   DPRINT(("tre_add_tags: %s complete.  Number of tags %d.\n",
 	  first_pass? "First pass" : "Second pass", num_tags));
 
-//  assert(tree->num_tags == num_tags);
+  assert(tree->num_tags == num_tags);
   tnfa->end_tag = num_tags;
   tnfa->num_tags = num_tags;
   tnfa->num_minimals = num_minimals;
@@ -783,7 +783,7 @@ tre_copy_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 		break;
 	      }
 	    default:
-//	      assert(0);
+	      assert(0);
 	      break;
 	    }
 	  break;
@@ -886,7 +886,7 @@ tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 		break;
 	      }
 	    default:
-//	      assert(0);
+	      assert(0);
 	      break;
 	    }
 	  break;
@@ -1027,7 +1027,7 @@ tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 	    break;
 	  }
 	default:
-//	  assert(0);
+	  assert(0);
 	  break;
 	}
     }
@@ -1248,7 +1248,7 @@ tre_match_empty(tre_stack_t *stack, tre_ast_node_t *node, int *tags,
 		}
 	      break;
 	    case ASSERTION:
-//	      assert(lit->code_max >= 1 || lit->code_max <= ASSERT_LAST);
+	      assert(lit->code_max >= 1 || lit->code_max <= ASSERT_LAST);
 	      if (assertions != NULL)
 		*assertions |= lit->code_max;
 	      break;
@@ -1262,7 +1262,7 @@ tre_match_empty(tre_stack_t *stack, tre_ast_node_t *node, int *tags,
 	    case EMPTY:
 	      break;
 	    default:
-//	      assert(0);
+	      assert(0);
 	      break;
 	    }
 	  break;
@@ -1277,7 +1277,7 @@ tre_match_empty(tre_stack_t *stack, tre_ast_node_t *node, int *tags,
 	  else if (uni->right->nullable)
 	    STACK_PUSHX(stack, voidptr, uni->right)
 	  else
-//	    assert(0);
+	    assert(0);
 	  break;
 
 	case CATENATION:

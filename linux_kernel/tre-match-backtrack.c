@@ -53,9 +53,9 @@ char *alloca ();
 #endif
 #endif /* TRE_USE_ALLOCA */
 
-//#include <assert.h>
-//#include <stdlib.h>
-//#include <string.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 #ifdef HAVE_WCHAR_H
 #include <wchar.h>
 #endif /* HAVE_WCHAR_H */
