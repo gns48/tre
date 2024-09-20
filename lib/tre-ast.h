@@ -44,8 +44,8 @@ typedef struct {
   void *obj;             /* Pointer to actual node. */
   int nullable;
   int submatch_id;
-  int num_submatches;
-  int num_tags;
+  unsigned int num_submatches;
+  unsigned int num_tags;
   tre_pos_and_tags_t *firstpos;
   tre_pos_and_tags_t *lastpos;
 } tre_ast_node_t;
@@ -101,7 +101,7 @@ tre_ast_node_t *
 tre_ast_new_node(tre_mem_t mem, tre_ast_type_t type, size_t size);
 
 tre_ast_node_t *
-tre_ast_new_literal(tre_mem_t mem, int code_min, int code_max, int position);
+tre_ast_new_literal(tre_mem_t mem, int code_min, int code_max);
 
 tre_ast_node_t *
 tre_ast_new_iter(tre_mem_t mem, tre_ast_node_t *arg, int min, int max,

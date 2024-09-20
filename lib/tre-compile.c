@@ -46,7 +46,7 @@ tre_add_tag_left(tre_mem_t mem, tre_ast_node_t *node, int tag_id)
   c = tre_mem_alloc(mem, sizeof(*c));
   if (c == NULL)
     return REG_ESPACE;
-  c->left = tre_ast_new_literal(mem, TAG, tag_id, -1);
+  c->left = tre_ast_new_literal(mem, TAG, tag_id);
   if (c->left == NULL)
     return REG_ESPACE;
   c->right = tre_mem_alloc(mem, sizeof(tre_ast_node_t));
@@ -78,7 +78,7 @@ tre_add_tag_right(tre_mem_t mem, tre_ast_node_t *node, int tag_id)
   c = tre_mem_alloc(mem, sizeof(*c));
   if (c == NULL)
     return REG_ESPACE;
-  c->right = tre_ast_new_literal(mem, TAG, tag_id, -1);
+  c->right = tre_ast_new_literal(mem, TAG, tag_id);
   if (c->right == NULL)
     return REG_ESPACE;
   c->left = tre_mem_alloc(mem, sizeof(tre_ast_node_t));
@@ -150,10 +150,10 @@ tre_add_tags(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree,
   /* True for first pass (counting number of needed tags) */
   int first_pass = (mem == NULL || tnfa == NULL);
   int *regset, *orig_regset;
-  int num_tags = 0; /* Total number of tags. */
-  int num_minimals = 0;	 /* Number of special minimal tags. */
-  int tag = 0;	    /* The tag that is to be added next. */
-  int next_tag = 1; /* Next tag to use after this one. */
+  unsigned int num_tags = 0; /* Total number of tags. */
+  unsigned int num_minimals = 0;	 /* Number of special minimal tags. */
+  unsigned int tag = 0;	    /* The tag that is to be added next. */
+  unsigned int next_tag = 1; /* Next tag to use after this one. */
   int *parents;	    /* Stack of submatches the current submatch is
 		       contained in. */
   int minimal_tag = -1; /* Tag that marks the beginning of a minimal match. */
@@ -688,8 +688,8 @@ tre_copy_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 	      {
 		tre_literal_t *lit = node->obj;
 		int pos = lit->position;
-		int min = lit->code_min;
-		int max = lit->code_max;
+		long min = lit->code_min;
+		long max = lit->code_max;
 		if (!IS_SPECIAL(lit) || IS_BACKREF(lit))
 		  {
 		    /* XXX - e.g. [ab] has only one position but two
@@ -711,9 +711,17 @@ tre_copy_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 		    tag_directions[max] = TRE_TAG_MAXIMIZE;
 		    first_tag = 0;
 		  }
-		*result = tre_ast_new_literal(mem, min, max, pos);
-		if (*result == NULL)
+		*result = tre_ast_new_literal(mem, min, max);
+		if (*result == NULL) {
 		  status = REG_ESPACE;
+		  break;
+		}
+		if (!IS_SPECIAL(lit)) {
+		  ((tre_literal_t *)(*result)->obj)->u.class = lit->u.class;
+		  ((tre_literal_t *)(*result)->obj)->neg_classes = lit->neg_classes;
+		} else if (IS_PARAMETER(lit)) {
+		  ((tre_literal_t *)(*result)->obj)->u.params = lit->u.params;
+		}
 
 		if (pos > *max_pos)
 		  *max_pos = pos;
@@ -798,8 +806,7 @@ typedef enum {
    iteration count to a catenated sequence of copies of the node. */
 static reg_errcode_t
 tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
-	       int *position, tre_tag_direction_t *tag_directions,
-	       int *max_depth)
+	       tre_tag_direction_t *tag_directions, int *max_depth)
 {
   reg_errcode_t status = REG_OK;
   int bottom = tre_stack_num_objects(stack);
@@ -937,7 +944,7 @@ tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 		  {
 		    for (j = iter->min; j < iter->max; j++)
 		      {
-			tre_ast_node_t *tmp, *copy;
+			tre_ast_node_t *copy;
 			pos_add_save = pos_add;
 			status = tre_copy_ast(mem, stack, iter->arg, 0,
 					      &pos_add, NULL, &copy, &max_pos);
@@ -949,10 +956,7 @@ tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 			  seq2 = copy;
 			if (seq2 == NULL)
 			  return REG_ESPACE;
-			tmp = tre_ast_new_literal(mem, EMPTY, -1, -1);
-			if (tmp == NULL)
-			  return REG_ESPACE;
-			seq2 = tre_ast_new_union(mem, tmp, seq2);
+			seq2 = tre_ast_new_iter(mem, seq2, 0, 1, 0);
 			if (seq2 == NULL)
 			  return REG_ESPACE;
 		      }
@@ -983,12 +987,12 @@ tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 		tre_ast_node_t *tmp_l, *tmp_r, *tmp_node, *node_copy;
 		int *old_params;
 
-		tmp_l = tre_ast_new_literal(mem, PARAMETER, 0, -1);
+		tmp_l = tre_ast_new_literal(mem, PARAMETER, 0);
 		if (!tmp_l)
 		  return REG_ESPACE;
 		((tre_literal_t *)tmp_l->obj)->u.params = iter->params;
 		iter->params[TRE_PARAM_DEPTH] = params_depth + 1;
-		tmp_r = tre_ast_new_literal(mem, PARAMETER, 0, -1);
+		tmp_r = tre_ast_new_literal(mem, PARAMETER, 0);
 		if (!tmp_r)
 		  return REG_ESPACE;
 		old_params = tre_mem_alloc(mem, sizeof(*old_params)
@@ -1028,19 +1032,9 @@ tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 	}
     }
 
-  *position += pos_add_total;
-
-  /* `max_pos' should never be larger than `*position' if the above
-     code works, but just an extra safeguard let's make sure
-     `*position' is set large enough so enough memory will be
-     allocated for the transition table. */
-  if (max_pos > *position)
-    *position = max_pos;
-
 #ifdef TRE_DEBUG
   DPRINT(("Expanded AST:\n"));
   tre_ast_print(ast);
-  DPRINT(("*position %d, max_pos %d\n", *position, max_pos));
 #endif
 
   return status;
@@ -1063,7 +1057,7 @@ tre_set_empty(tre_mem_t mem)
 }
 
 static tre_pos_and_tags_t *
-tre_set_one(tre_mem_t mem, int position, int code_min, int code_max,
+tre_set_one(tre_mem_t mem, int position, long code_min, long code_max,
 	    tre_ctype_t class, tre_ctype_t *neg_classes, int backref)
 {
   tre_pos_and_tags_t *new_set;
@@ -1244,8 +1238,7 @@ tre_match_empty(tre_stack_t *stack, tre_ast_node_t *node, int *tags,
 		}
 	      break;
 	    case ASSERTION:
-	      assert(lit->code_max >= 1
-		     || lit->code_max <= ASSERT_LAST);
+	      assert(lit->code_max >= 1 && lit->code_max <= ASSERT_LAST);
 	      if (assertions != NULL)
 		*assertions |= lit->code_max;
 	      break;
@@ -1305,33 +1298,36 @@ tre_match_empty(tre_stack_t *stack, tre_ast_node_t *node, int *tags,
 
 
 typedef enum {
-  NFL_RECURSE,
-  NFL_POST_UNION,
-  NFL_POST_CATENATION,
-  NFL_POST_ITERATION
-} tre_nfl_stack_symbol_t;
+  NPFL_RECURSE,
+  NPFL_POST_UNION,
+  NPFL_POST_CATENATION,
+  NPFL_POST_ITERATION
+} tre_npfl_stack_symbol_t;
 
 
-/* Computes and fills in the fields `nullable', `firstpos', and `lastpos' for
-   the nodes of the AST `tree'. */
+/* Computes and fills in the fields `nullable', `position`, `firstpos',
+   and `lastpos' for the nodes of the AST `tree'; `nextpos' points to an
+   integer indicating the next available position, and will be updated on
+   return to reflect the number of additional positions assigned. */
 static reg_errcode_t
-tre_compute_nfl(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree)
+tre_compute_npfl(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree,
+		 int *nextpos)
 {
   int bottom = tre_stack_num_objects(stack);
 
   STACK_PUSHR(stack, voidptr, tree);
-  STACK_PUSHR(stack, int, NFL_RECURSE);
+  STACK_PUSHR(stack, int, NPFL_RECURSE);
 
   while (tre_stack_num_objects(stack) > bottom)
     {
-      tre_nfl_stack_symbol_t symbol;
+      tre_npfl_stack_symbol_t symbol;
       tre_ast_node_t *node;
 
-      symbol = (tre_nfl_stack_symbol_t)tre_stack_pop_int(stack);
+      symbol = (tre_npfl_stack_symbol_t)tre_stack_pop_int(stack);
       node = tre_stack_pop_voidptr(stack);
       switch (symbol)
 	{
-	case NFL_RECURSE:
+	case NPFL_RECURSE:
 	  switch (node->type)
 	    {
 	    case LITERAL:
@@ -1342,13 +1338,14 @@ tre_compute_nfl(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree)
 		    /* Back references: nullable = false, firstpos = {i},
 		       lastpos = {i}. */
 		    node->nullable = 0;
+		    lit->position = (*nextpos)++;
 		    node->firstpos = tre_set_one(mem, lit->position, 0,
 					     TRE_CHAR_MAX, 0, NULL, -1);
 		    if (!node->firstpos)
 		      return REG_ESPACE;
 		    node->lastpos = tre_set_one(mem, lit->position, 0,
 						TRE_CHAR_MAX, 0, NULL,
-						(int)lit->code_max);
+						lit->code_max);
 		    if (!node->lastpos)
 		      return REG_ESPACE;
 		  }
@@ -1369,14 +1366,15 @@ tre_compute_nfl(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree)
 		    /* Literal at position i: nullable = false, firstpos = {i},
 		       lastpos = {i}. */
 		    node->nullable = 0;
+		    lit->position = (*nextpos)++;
 		    node->firstpos =
-		      tre_set_one(mem, lit->position, (int)lit->code_min,
-				  (int)lit->code_max, 0, NULL, -1);
+		      tre_set_one(mem, lit->position, lit->code_min,
+				  lit->code_max, 0, NULL, -1);
 		    if (!node->firstpos)
 		      return REG_ESPACE;
 		    node->lastpos = tre_set_one(mem, lit->position,
-						(int)lit->code_min,
-						(int)lit->code_max,
+						lit->code_min,
+						lit->code_max,
 						lit->u.class, lit->neg_classes,
 						-1);
 		    if (!node->lastpos)
@@ -1389,36 +1387,36 @@ tre_compute_nfl(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree)
 	      /* Compute the attributes for the two subtrees, and after that
 		 for this node. */
 	      STACK_PUSHR(stack, voidptr, node);
-	      STACK_PUSHR(stack, int, NFL_POST_UNION);
+	      STACK_PUSHR(stack, int, NPFL_POST_UNION);
 	      STACK_PUSHR(stack, voidptr, ((tre_union_t *)node->obj)->right);
-	      STACK_PUSHR(stack, int, NFL_RECURSE);
+	      STACK_PUSHR(stack, int, NPFL_RECURSE);
 	      STACK_PUSHR(stack, voidptr, ((tre_union_t *)node->obj)->left);
-	      STACK_PUSHR(stack, int, NFL_RECURSE);
+	      STACK_PUSHR(stack, int, NPFL_RECURSE);
 	      break;
 
 	    case CATENATION:
 	      /* Compute the attributes for the two subtrees, and after that
 		 for this node. */
 	      STACK_PUSHR(stack, voidptr, node);
-	      STACK_PUSHR(stack, int, NFL_POST_CATENATION);
+	      STACK_PUSHR(stack, int, NPFL_POST_CATENATION);
 	      STACK_PUSHR(stack, voidptr, ((tre_catenation_t *)node->obj)->right);
-	      STACK_PUSHR(stack, int, NFL_RECURSE);
+	      STACK_PUSHR(stack, int, NPFL_RECURSE);
 	      STACK_PUSHR(stack, voidptr, ((tre_catenation_t *)node->obj)->left);
-	      STACK_PUSHR(stack, int, NFL_RECURSE);
+	      STACK_PUSHR(stack, int, NPFL_RECURSE);
 	      break;
 
 	    case ITERATION:
 	      /* Compute the attributes for the subtree, and after that for
 		 this node. */
 	      STACK_PUSHR(stack, voidptr, node);
-	      STACK_PUSHR(stack, int, NFL_POST_ITERATION);
+	      STACK_PUSHR(stack, int, NPFL_POST_ITERATION);
 	      STACK_PUSHR(stack, voidptr, ((tre_iteration_t *)node->obj)->arg);
-	      STACK_PUSHR(stack, int, NFL_RECURSE);
+	      STACK_PUSHR(stack, int, NPFL_RECURSE);
 	      break;
 	    }
-	  break; /* end case: NFL_RECURSE */
+	  break; /* end case: NPFL_RECURSE */
 
-	case NFL_POST_UNION:
+	case NPFL_POST_UNION:
 	  {
 	    tre_union_t *uni = (tre_union_t *)node->obj;
 	    node->nullable = uni->left->nullable || uni->right->nullable;
@@ -1433,7 +1431,7 @@ tre_compute_nfl(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree)
 	    break;
 	  }
 
-	case NFL_POST_ITERATION:
+	case NPFL_POST_ITERATION:
 	  {
 	    tre_iteration_t *iter = (tre_iteration_t *)node->obj;
 
@@ -1446,7 +1444,7 @@ tre_compute_nfl(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree)
 	    break;
 	  }
 
-	case NFL_POST_CATENATION:
+	case NPFL_POST_CATENATION:
 	  {
 	    int num_tags, *tags, assertions, params_seen;
 	    int *params;
@@ -1839,7 +1837,6 @@ tre_ast_to_tnfa(tre_ast_node_t *node, tre_tnfa_transition_t *transitions,
   return errcode;
 }
 
-
 #define ERROR_EXIT(err)		  \
   do				  \
     {				  \
@@ -1864,6 +1861,7 @@ tre_compile(regex_t *preg, const tre_char_t *regex, size_t n, int cflags)
   tre_tag_direction_t *tag_directions = NULL;
   reg_errcode_t errcode;
   tre_mem_t mem;
+  int numpos = 0;
 
   /* Parse context. */
   tre_parse_ctx_t parse_ctx;
@@ -1889,8 +1887,8 @@ tre_compile(regex_t *preg, const tre_char_t *regex, size_t n, int cflags)
   parse_ctx.len = n;
   parse_ctx.cflags = cflags;
   parse_ctx.max_backref = -1;
-  /* workaround for PR#14408: use 8-bit optimizations in 8-bit mode */
-  parse_ctx.cur_max = (cflags & REG_USEBYTES) ? 1 : TRE_MB_CUR_MAX;
+  /* Use 8-bit optimizations in 8-bit mode */
+  parse_ctx.mb_cur_max = (cflags & REG_USEBYTES) ? 1 : TRE_MB_CUR_MAX;
   DPRINT(("tre_compile: parsing '%.*" STRF "'\n", (int)n, regex));
   errcode = tre_parse(&parse_ctx);
   if (errcode != REG_OK)
@@ -1970,8 +1968,8 @@ tre_compile(regex_t *preg, const tre_char_t *regex, size_t n, int cflags)
     }
 
   /* Expand iteration nodes. */
-  errcode = tre_expand_ast(mem, stack, tree, &parse_ctx.position,
-			   tag_directions, &tnfa->params_depth);
+  errcode = tre_expand_ast(mem, stack, tree, tag_directions,
+			   &tnfa->params_depth);
   if (errcode != REG_OK)
     ERROR_EXIT(errcode);
 
@@ -1980,7 +1978,7 @@ tre_compile(regex_t *preg, const tre_char_t *regex, size_t n, int cflags)
 	   for example "a*" or "ab*".	Figure out a simple way to detect
 	   this possibility. */
   tmp_ast_l = tree;
-  tmp_ast_r = tre_ast_new_literal(mem, 0, 0, parse_ctx.position++);
+  tmp_ast_r = tre_ast_new_literal(mem, 0, 0);
   if (tmp_ast_r == NULL)
     ERROR_EXIT(REG_ESPACE);
 
@@ -1988,29 +1986,29 @@ tre_compile(regex_t *preg, const tre_char_t *regex, size_t n, int cflags)
   if (tree == NULL)
     ERROR_EXIT(REG_ESPACE);
 
-#ifdef TRE_DEBUG
-  tre_ast_print(tree);
-  DPRINT(("Number of states: %d\n", parse_ctx.position));
-#endif /* TRE_DEBUG */
-
-  errcode = tre_compute_nfl(mem, stack, tree);
+  errcode = tre_compute_npfl(mem, stack, tree, &numpos);
   if (errcode != REG_OK)
     ERROR_EXIT(errcode);
 
-  counts = xmalloc(sizeof(int) * parse_ctx.position);
+#ifdef TRE_DEBUG
+  tre_ast_print(tree);
+  DPRINT(("Number of states: %d\n", numpos));
+#endif /* TRE_DEBUG */
+
+  counts = xmalloc(sizeof(int) * numpos);
   if (counts == NULL)
     ERROR_EXIT(REG_ESPACE);
 
-  offs = xmalloc(sizeof(int) * parse_ctx.position);
+  offs = xmalloc(sizeof(int) * numpos);
   if (offs == NULL)
     ERROR_EXIT(REG_ESPACE);
 
-  for (i = 0; i < parse_ctx.position; i++)
+  for (i = 0; i < numpos; i++)
     counts[i] = 0;
   tre_ast_to_tnfa(tree, NULL, counts, NULL);
 
   add = 0;
-  for (i = 0; i < parse_ctx.position; i++)
+  for (i = 0; i < numpos; i++)
     {
       offs[i] = add;
       add += counts[i] + 1;
@@ -2030,7 +2028,7 @@ tre_compile(regex_t *preg, const tre_char_t *regex, size_t n, int cflags)
   /* If in eight bit mode, compute a table of characters that can be the
      first character of a match. */
   tnfa->first_char = -1;
-  if (TRE_MB_CUR_MAX == 1 && !tmp_ast_l->nullable)
+  if (parse_ctx.mb_cur_max == 1 && !tmp_ast_l->nullable)
     {
       int count = 0;
       tre_cint_t k;
@@ -2148,7 +2146,7 @@ tre_compile(regex_t *preg, const tre_char_t *regex, size_t n, int cflags)
 
   tnfa->num_transitions = add;
   tnfa->final = transitions + offs[tree->lastpos[0].position];
-  tnfa->num_states = parse_ctx.position;
+  tnfa->num_states = numpos;
   tnfa->cflags = cflags;
 
   DPRINT(("final state %p\n", (void *)tnfa->final));
